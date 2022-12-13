@@ -50,10 +50,8 @@ int main()
 {
 	int n;
 	srand(time(NULL));
-	setlocale(LC_ALL, "Russian");
 
-
-	cout << "Введите количество городов: ";
+	cout << "Enter number of cities: ";
 	cin >> n;
 	cout << endl;
 	int* way = new int[n];
@@ -117,8 +115,8 @@ int main()
 			}
 		}
 	} while (permutations(way, 1, n));
-	cout << "Расстояние минимального пути: " << min_distance << endl;
-	cout << "Путь: ";
+	cout << "Minimum way distance:: " << min_distance << endl;
+	cout << "Way: ";
 	for (int i = 0; i < n; i++)
 	{
 		cout << min_way[i] << " ";
