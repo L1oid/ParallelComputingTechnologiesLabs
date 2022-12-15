@@ -6,7 +6,7 @@
 
 using namespace std;
 
-int distance(int* arr, int **distances, int n)
+int distance(int* arr, int** distances, int n)
 {
 	int distance = distances[0][arr[0]] + distances[arr[n - 1]][0];
 	for (int i = 1; i < n; i++)
@@ -23,7 +23,7 @@ void swap(int* arr, int i, int j)
 	arr[j] = temp;
 }
 
-bool permutations(int* arr, int* arr_end, int lf, int n)
+bool permutations(int* arr, int lf, int n)
 {
 	int rt = n - 1, i = rt - 1;
 	while (i >= lf && arr[i] >= arr[i + 1])
@@ -45,23 +45,6 @@ bool permutations(int* arr, int* arr_end, int lf, int n)
 	{
 		swap(arr, lf++, rt--);
 	}
-	bool check;
-	for (int i = 0; i < n; i++)
-	{
-		if (arr[i] != arr_end[i])
-		{
-			check = true;
-			break;
-		}
-		else
-		{
-			check = false;
-		}
-	}
-	if (check == false)
-	{
-		return false;
-	}
 	return true;
 }
 
@@ -76,12 +59,13 @@ int main(int argc, char* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+	int n;
 	if (rank == 0)
 	{
+		cout << "Enter number of cities: ";
+		cin >> n;
 		start_time = MPI_Wtime();
 	}
-
-	int n = size + 1;
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	int** distances = new int* [n];
@@ -169,31 +153,25 @@ int main(int argc, char* argv[])
 		cout << endl;
 	}
 
-	int index;
-	if (rank + 1 == size)
+	if (rank != 0)
 	{
-		index = 0;
-	}
-	else index = rank + 1;
-
-	do
-	{
-		int len_distance = distance(way[rank], distances, n);
-		if (len_distance < min_distance)
+		for (int i = rank; i < n; i += size)
 		{
-			min_distance = len_distance;
-			for (int i = 0; i < n; i++)
+			do
 			{
-				min_way[i] = way[rank][i];
-			}
+				int len_distance = distance(way[i - 1], distances, n);
+				if (len_distance < min_distance)
+				{
+					min_distance = len_distance;
+					for (int j = 0; j < n; j++)
+					{
+						min_way[j] = way[i - 1][j];
+					}
+				}
+			} while (permutations(way[i - 1], 2, n));
+			MPI_Send(min_way, n, MPI_INT, 0, 777, MPI_COMM_WORLD);
 		}
-		int index;
-		if (rank + 1 == size)
-		{
-			index = 0;
-		}
-		else index = rank + 1;
-	} while (permutations(way[rank], way[index], 1, n));
+	}
 
 	int** final_way = new int* [n - 1];
 	final_way[0] = new int[(n - 1) * n];
@@ -202,11 +180,17 @@ int main(int argc, char* argv[])
 		final_way[i] = final_way[i - 1] + n;
 	}
 
-	MPI_Gather(min_way, n, MPI_INT, final_way[0], n, MPI_INT, 0, MPI_COMM_WORLD);
 
 	if (rank == 0)
 	{
-		cout << "rank = " << rank << ": " << "Way matrix:" << endl;
+		if (size >= n)
+		{
+			for (int i = 1; i < n; i++)
+			{
+				MPI_Recv(final_way[i - 1], n, MPI_INT, i, 777, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			}
+		}
+		cout << "rank = " << rank << ": " << "Final Way matrix:" << endl;
 		for (int i = 0; i < n - 1; i++)
 		{
 			for (int j = 0; j < n; j++)
