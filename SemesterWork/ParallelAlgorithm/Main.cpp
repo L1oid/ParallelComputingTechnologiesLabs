@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
 	int rank;
 	int size;
 	int min_distance = INT_MAX;
+	int global_min_distance = INT_MAX;
 	double start_time, end_time;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -90,6 +91,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	int* min_way = new int[n];
+	for (int i = 0; i < n; i++)
+	{
+		min_way[i] = 0;
+	}
+
 	int** way = new int* [n - 1];
 	way[0] = new int[(n - 1) * n];
 	for (int i = 1; i < n - 1; i++)
@@ -123,15 +130,27 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	int* min_way = new int[n];
-	for (int i = 0; i < n; i++)
+	for (int i = rank + 1; i < n - 1; i += size)
 	{
-		min_way[i] = 0;
+		do
+		{
+			int len_distance = distance(way[i], distances, n);
+			if (len_distance < min_distance)
+			{
+				min_distance = len_distance;
+				for (int j = 0; j < n; j++)
+				{
+					min_way[j] = way[i][j];
+				}
+			}
+		} while (permutations(way[i], 2, n));
 	}
+
+	MPI_Allreduce(&min_distance, &global_min_distance, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
 	if (rank == 0)
 	{
-		cout << "rank = " << rank << ": " << "Distance matrix:" << endl;
+		cout << "Distance matrix:" << endl;
 		for (int i = 0; i < n; i++)
 		{
 			for (int j = 0; j < n; j++)
@@ -141,90 +160,26 @@ int main(int argc, char* argv[])
 			cout << endl;
 		}
 		cout << endl;
-		cout << "rank = " << rank << ": " << "Way matrix:" << endl;
-		for (int i = 0; i < n - 1; i++)
+		if (min_distance != global_min_distance)
 		{
-			for (int j = 0; j < n; j++)
-			{
-				cout << way[i][j] << " ";
-			}
-			cout << endl;
-		}
-		cout << endl;
-	}
-
-	if (rank != 0)
-	{
-		for (int i = rank; i < n; i += size)
-		{
-			do
-			{
-				int len_distance = distance(way[i - 1], distances, n);
-				if (len_distance < min_distance)
-				{
-					min_distance = len_distance;
-					for (int j = 0; j < n; j++)
-					{
-						min_way[j] = way[i - 1][j];
-					}
-				}
-			} while (permutations(way[i - 1], 2, n));
-			MPI_Send(min_way, n, MPI_INT, 0, 777, MPI_COMM_WORLD);
-		}
-	}
-
-	int** final_way = new int* [n - 1];
-	final_way[0] = new int[(n - 1) * n];
-	for (int i = 1; i < n - 1; i++)
-	{
-		final_way[i] = final_way[i - 1] + n;
-	}
-
-
-	if (rank == 0)
-	{
-		if (size >= n)
-		{
-			for (int i = 1; i < n; i++)
-			{
-				MPI_Recv(final_way[i - 1], n, MPI_INT, i, 777, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-			}
-		}
-		cout << "rank = " << rank << ": " << "Final Way matrix:" << endl;
-		for (int i = 0; i < n - 1; i++)
-		{
-			for (int j = 0; j < n; j++)
-			{
-				cout << final_way[i][j] << " ";
-			}
-			cout << endl;
-		}
-		cout << endl;
-
-		min_distance = INT_MAX;
-		int len_distance;
-
-		for (int i = 0; i < n - 1; i++)
-		{
-			len_distance = distance(final_way[i], distances, n);
-			if (len_distance < min_distance)
-			{
-				min_distance = len_distance;
-				for (int j = 0; j < n; j++)
-				{
-					min_way[j] = final_way[i][j];
-				}
-			}
+			MPI_Recv(min_way, n, MPI_INT, MPI_ANY_SOURCE, 777, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 		end_time = MPI_Wtime();
-		cout << "Rank = " << rank << " Time: " << end_time - start_time << endl;
-		cout << "Rank = " << rank << " Minimum way distance: " << min_distance << endl;
-		cout << "Rank = " << rank << " Way: ";
+		cout << "Time: " << end_time - start_time << endl;
+		cout << "Minimum way distance: " << min_distance << endl;
+		cout << "Way: ";
 		for (int i = 0; i < n; i++)
 		{
 			cout << min_way[i] << " ";
 		}
 		cout << endl;
+	}
+	else
+	{
+		if (min_distance == global_min_distance)
+		{
+			MPI_Send(min_way, n, MPI_INT, 0, 777, MPI_COMM_WORLD);
+		}
 	}
 	MPI_Finalize();
 }
