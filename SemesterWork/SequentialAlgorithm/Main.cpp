@@ -49,28 +49,27 @@ bool permutations(int* arr, int lf, int n)
 
 int main(int argc, char* argv[])
 {
-
+	srand(time(NULL));
 	int rank;
 	int size;
+	int min_distance = INT_MAX;
+	int count_permutations = 0;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-
 	int n;
-	srand(time(NULL));
-
 	cout << "Enter number of cities: ";
 	cin >> n;
-	cout << endl;
+
 	double start_time = MPI_Wtime();
+
 	int* way = new int[n];
 	for (int i = 0; i < n; i++)
 	{
 		way[i] = i;
 	}
 
-	int min_distance = INT_MAX;
 	int* min_way = new int[n];
 	for (int i = 0; i < n; i++)
 	{
@@ -83,8 +82,6 @@ int main(int argc, char* argv[])
 	{
 		distances[i] = distances[i - 1] + n;
 	}
-
-
 	for (int i = 0; i < n; i++)
 	{
 		for (int j = i; j < n; j++)
@@ -101,6 +98,19 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	do
+	{
+		count_permutations++;
+		int len_distance = distance(way, distances, n);
+		if (len_distance < min_distance)
+		{
+			min_distance = len_distance;
+			for (int i = 0; i < n; i++)
+			{
+				min_way[i] = way[i];
+			}
+		}
+	} while (permutations(way, 1, n));
 
 	for (int i = 0; i < n; i++)
 	{
@@ -112,21 +122,9 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-
-	do
-	{
-		int len_distance = distance(way, distances, n);
-		if (len_distance < min_distance)
-		{
-			min_distance = len_distance;
-			for (int i = 0; i < n; i++)
-			{
-				min_way[i] = way[i];
-			}
-		}
-	} while (permutations(way, 1, n));
 	double end_time = MPI_Wtime();
 	cout << "Time: " << end_time - start_time << endl;
+	cout << "Count of permutations: " << count_permutations << endl;
 	cout << "Minimum way distance: " << min_distance << endl;
 	cout << "Way: ";
 	for (int i = 0; i < n; i++)
