@@ -55,6 +55,8 @@ int main(int argc, char* argv[])
 	int size;
 	int min_distance = INT_MAX;
 	int global_min_distance = INT_MAX;
+	int count_permutations = 0;
+	int sum_count_permutations = 0;
 	double start_time, end_time;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -97,54 +99,45 @@ int main(int argc, char* argv[])
 		min_way[i] = 0;
 	}
 
-	int** way = new int* [n - 1];
-	way[0] = new int[(n - 1) * n];
-	for (int i = 1; i < n - 1; i++)
+	int* way = new int[n];
+	for (int i = 0; i < n; i++)
 	{
-		way[i] = way[i - 1] + n;
+		way[i] = 0;
 	}
-	for (int i = 0; i < n - 1; i++)
-	{
-		way[i][0] = 0;
-	}
-	for (int i = 0; i < n - 1; i++)
+
+	for (int i = rank + 1; i < n; i += size)
 	{
 		for (int j = 1; j < n; j++)
 		{
 			if (j == 1)
 			{
-				way[i][j] = i + 1;
+				way[j] = i;
 			}
-			else if (way[i][1] == j)
+			else if (j <= i)
 			{
-				way[i][j] = j - 1;
+				way[j] = j - 1;
 			}
-			else if (j < i + 1)
+			else if (j > i)
 			{
-				way[i][j] = j - 1;
-			}
-			else if (j > i + 1)
-			{
-				way[i][j] = j;
+				way[j] = j;
 			}
 		}
-	}
-
-	for (int i = rank + 1; i < n - 1; i += size)
-	{
 		do
 		{
-			int len_distance = distance(way[i], distances, n);
+			count_permutations++;
+			int len_distance = distance(way, distances, n);
 			if (len_distance < min_distance)
 			{
 				min_distance = len_distance;
 				for (int j = 0; j < n; j++)
 				{
-					min_way[j] = way[i][j];
+					min_way[j] = way[j];
 				}
 			}
-		} while (permutations(way[i], 2, n));
+		} while (permutations(way, 2, n));
 	}
+
+	MPI_Allreduce(&count_permutations, &sum_count_permutations, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
 	MPI_Allreduce(&min_distance, &global_min_distance, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
@@ -166,6 +159,7 @@ int main(int argc, char* argv[])
 		}
 		end_time = MPI_Wtime();
 		cout << "Time: " << end_time - start_time << endl;
+		cout << "Count of permutations: " << sum_count_permutations << endl;
 		cout << "Minimum way distance: " << min_distance << endl;
 		cout << "Way: ";
 		for (int i = 0; i < n; i++)
