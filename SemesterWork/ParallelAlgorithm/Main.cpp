@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
 	int size;
 	int min_distance = INT_MAX;
 	int global_min_distance = INT_MAX;
+	MPI_Request req;
 	int count_permutations = 0;
 	int sum_count_permutations = 0;
 	double start_time, end_time;
@@ -160,7 +161,7 @@ int main(int argc, char* argv[])
 		end_time = MPI_Wtime();
 		cout << "Time: " << end_time - start_time << endl;
 		cout << "Count of permutations: " << sum_count_permutations << endl;
-		cout << "Minimum way distance: " << min_distance << endl;
+		cout << "Minimum way distance: " << global_min_distance << endl;
 		cout << "Way: ";
 		for (int i = 0; i < n; i++)
 		{
@@ -172,8 +173,10 @@ int main(int argc, char* argv[])
 	{
 		if (min_distance == global_min_distance)
 		{
+			//MPI_Isend(min_way, n, MPI_INT, 0, 777, MPI_COMM_WORLD, &req);
 			MPI_Send(min_way, n, MPI_INT, 0, 777, MPI_COMM_WORLD);
 		}
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Finalize();
 }
